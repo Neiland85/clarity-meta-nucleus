@@ -71,3 +71,8 @@ Use Semantic Versioning for published releases when the project has a defined re
 ## Security reporting
 
 Do not publish credentials, exploitable client details, or sensitive evidence in issues or pull requests. Use an appropriate private reporting channel for sensitive findings.
+
+## Review policy and code ownership
+
+Review policy: `docs/review-policy.md`. `CODEOWNERS` identifies the current
+maintainer but does not establish independent review.
