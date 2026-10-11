@@ -1,0 +1,73 @@
+name: Repository Hygiene
+
+on:
+  pull_request:
+    branches:
+      - main
+  push:
+    branches:
+      - main
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: repository-hygiene-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  hygiene:
+    name: Repository Hygiene
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Validate required governance files
+        shell: bash
+        run: |
+          set -euo pipefail
+          test -s README.md
+          test -s CONTRIBUTING.md
+          test -s .github/pull_request_template.md
+          test -s .gitignore
+          echo "Required governance files exist and are non-empty."
+
+      - name: Check changed content
+        shell: bash
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+        run: |
+          set -euo pipefail
+
+          if [ "$GITHUB_EVENT_NAME" = "pull_request" ]; then
+            git diff --check "$BASE_SHA...$GITHUB_SHA"
+          else
+            git show --check --format=oneline "$GITHUB_SHA"
+          fi
+
+          echo "Changed-content whitespace check passed."
+
+      - name: Check tracked files for common secret-bearing paths
+        shell: bash
+        run: |
+          set -euo pipefail
+
+          matches="$(
+            git ls-files |
+              grep -E '(^|/)(\.env($|\.)|id_rsa|id_ed25519|credentials\.json|service-account\.json)$' |
+              grep -Ev '(^|/)\.env\.example$' || true
+          )"
+
+          if [ -n "$matches" ]; then
+            printf '%s\n' "$matches"
+            echo "::error::Potential secret-bearing file path is tracked."
+            exit 1
+          fi
+
+          echo "No common secret-bearing paths detected."
